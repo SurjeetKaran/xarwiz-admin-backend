@@ -15,6 +15,22 @@ const AuthorSchema = new mongoose.Schema(
       required: true,
     },
 
+    // --- NEW: Email Field ---
+    email: {
+      type: String,
+      required: [true, "Email is required"], // Added required validation
+      unique: true, // Ensures no two authors have the same email
+      lowercase: true, // Stores email in lowercase
+      trim: true, // Removes whitespace
+    },
+
+    // --- NEW: Password Field ---
+    password: {
+      type: String,
+      required: [true, "Password is required"], // Added required validation
+      select: false, // Hides password by default on queries
+    },
+
     // Display name (e.g., "Rosalina D. Willaim")
     displayName: { type: String, required: true },
 
@@ -37,6 +53,7 @@ const AuthorSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 
 // =========================================================================
 // 2. Category Schema (Manages Categories/Subcategories in Sidebar)

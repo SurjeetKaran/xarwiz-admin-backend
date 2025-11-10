@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const blogController = require("../controllers/BlogController");
+const { checkAuth } = require('../middleware/authMiddleware');
 
 // ======================================================================
 // 📖 PUBLIC READ ROUTES
@@ -34,12 +35,13 @@ router.get("/blog/author/:id", blogController.getAuthorById);
 // ======================================================================
 
 // ---- Blog Posts ----
-router.post("/admin/blog/posts", blogController.createPost);
-router.put("/admin/blog/posts/:id", blogController.updatePost);
-router.delete("/admin/blog/posts/:id", blogController.deletePost);
+router.post("/admin/blog/posts", checkAuth, blogController.createPost);
+router.put("/admin/blog/posts/:id", checkAuth, blogController.updatePost);
+router.delete("/admin/blog/posts/:id", checkAuth, blogController.deletePost);
 
 // ---- Authors ----
 router.post("/admin/authors", blogController.createAuthor);
+router.post("/admin/login", blogController.authorLogin);
 router.get("/admin/authors", blogController.getAllAuthors);
 router.put("/admin/authors/:id", blogController.updateAuthor);
 router.delete("/admin/authors/:id", blogController.deleteAuthor);

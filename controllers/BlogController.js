@@ -3,21 +3,11 @@
 const mongoose = require("mongoose");
 const { BlogPost, Author, Category, Tag, Comment } = require("../models/blog");
 
+
 // ==================================================
 // PUBLIC BLOG ROUTES
 // ==================================================
-// exports.getPublishedPosts = async (req, res) => {
-//   console.log("📘 [GET] Fetching published blog posts...");
-//   try {
-//     const posts = await BlogPost.find({ status: "published" })
-//       .select("title slug summary imageUrl publishDate readTime author commentCount")
-//       .sort({ publishDate: -1 })
-//       .limit(10);
-//     res.status(200).json(posts);
-//   } catch (error) {
-//     res.status(500).json({ message: "Error fetching blog list.", error: error.message });
-//   }
-// };
+
 
 exports.getPublishedPosts = async (req, res) => {
   console.log("📘 [GET] Fetching published blog posts...");
@@ -82,14 +72,39 @@ exports.getPopularTags = async (req, res) => {
 exports.createPost = async (req, res) => {
   console.log("📝 [POST] Creating new blog post...");
   try {
-    const { title, slug, summary, content, imageUrl, readTime, category, authorId, tags, isFeatured, status } = req.body;
+    // 1. Get post data from req.body
+    const { title, slug, summary, content, imageUrl, readTime, category, tags, isFeatured, status } = req.body;
+    
+    // 2. Get the logged-in user (admin or author) from the checkAuth middleware
+    const loggedInUser = req.user;
 
-    const author = await Author.findById(authorId).select("displayName profileImage");
-    if (!author) return res.status(404).json({ message: "Author not found." });
+    let postAuthor;
 
+    // 3. Determine the author of the post based on role
+    if (loggedInUser.role === 'author') {
+      // If an AUTHOR is creating, they are the author.
+      postAuthor = loggedInUser;
+    } else if (loggedInUser.role === 'admin') {
+      // If an ADMIN is creating, they MUST provide an 'authorId'
+      const { authorId } = req.body;
+      if (!authorId) {
+        return res.status(400).json({ message: "Admin must provide an 'authorId' to create a post." });
+      }
+      // Find the author they are posting for
+      const authorFromDb = await Author.findById(authorId);
+      if (!authorFromDb) {
+        return res.status(404).json({ message: "The specified author was not found." });
+      }
+      postAuthor = authorFromDb;
+    } else {
+      return res.status(403).json({ message: "Not authorized to create a post." });
+    }
+
+    // 4. Validate category
     const cat = await Category.findById(category);
     if (!cat) return res.status(404).json({ message: "Category not found." });
 
+    // 5. Create the new post
     const newPost = new BlogPost({
       title,
       slug,
@@ -98,13 +113,19 @@ exports.createPost = async (req, res) => {
       imageUrl,
       readTime,
       category: cat._id,
-      author: { id: author._id, displayName: author.displayName, profileImage: author.profileImage },
+      author: { // Populate with the 'postAuthor' we determined
+        id: postAuthor._id, 
+        displayName: postAuthor.displayName, 
+        profileImage: postAuthor.profileImage 
+      },
       tags,
       isFeatured,
       status,
     });
 
     const savedPost = await newPost.save();
+    
+    // 6. Cleanup logic (remains the same)
     await Category.findByIdAndUpdate(cat._id, { $inc: { postCount: 1 } });
     if (tags?.length) {
       for (const tag of tags) {
@@ -121,27 +142,36 @@ exports.createPost = async (req, res) => {
 exports.updatePost = async (req, res) => {
   console.log(`✏️ [PUT] Updating post ID: ${req.params.id}`);
   try {
-    const { title, slug, summary, content, imageUrl, readTime, category, authorId, tags, isFeatured, status } = req.body;
+    const { title, slug, summary, content, imageUrl, readTime, category, tags, isFeatured, status } = req.body;
+    
     const post = await BlogPost.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found." });
 
-    let authorData = post.author;
-    if (authorId) {
-      const author = await Author.findById(authorId).select("displayName profileImage");
-      if (!author) return res.status(404).json({ message: "Author not found." });
-      authorData = { id: author._id, displayName: author.displayName, profileImage: author.profileImage };
+    // 1. Get the logged-in user (admin or author) from middleware
+    const loggedInUser = req.user;
+
+    // 2. --- NEW AUTHORIZATION LOGIC ---
+    // Allow the update if:
+    // 1. The user's role is 'admin'
+    // 2. The user's role is 'author' AND their ID matches the post's author ID
+    if (loggedInUser.role === 'admin' || (loggedInUser.role === 'author' && post.author.id.toString() === loggedInUser._id.toString())) {
+      
+      // User is authorized, proceed with update
+      const updatedPost = await BlogPost.findByIdAndUpdate(
+        req.params.id,
+        { 
+          title, slug, summary, content, imageUrl, readTime, 
+          category, tags, isFeatured, status 
+        },
+        { new: true, runValidators: true }
+      );
+      res.status(200).json(updatedPost);
+
+    } else {
+      // User is not an admin and not the owner
+      return res.status(403).json({ message: "Not authorized to update this post." });
     }
-
-    const cat = await Category.findById(category || post.category);
-    if (!cat) return res.status(404).json({ message: "Category not found." });
-
-    const updatedPost = await BlogPost.findByIdAndUpdate(
-      req.params.id,
-      { title, slug, summary, content, imageUrl, readTime, category: cat._id, author: authorData, tags, isFeatured, status },
-      { new: true, runValidators: true }
-    );
-
-    res.status(200).json(updatedPost);
+    
   } catch (error) {
     res.status(400).json({ message: "Error updating post.", error: error.message });
   }
@@ -150,19 +180,36 @@ exports.updatePost = async (req, res) => {
 exports.deletePost = async (req, res) => {
   console.log(`🗑️ [DELETE] Deleting post ID: ${req.params.id}`);
   try {
-    const deletedPost = await BlogPost.findByIdAndDelete(req.params.id);
-    if (!deletedPost) return res.status(404).json({ message: "Post not found." });
+    const postToDelete = await BlogPost.findById(req.params.id);
+    if (!postToDelete) return res.status(404).json({ message: "Post not found." });
 
-    await Comment.deleteMany({ postId: deletedPost._id });
-    await Category.findByIdAndUpdate(deletedPost.category, { $inc: { postCount: -1 } });
+    // 1. Get the logged-in user (admin or author) from middleware
+    const loggedInUser = req.user;
 
-    if (deletedPost.tags?.length) {
-      for (const tag of deletedPost.tags) {
-        await Tag.findOneAndUpdate({ slug: tag.slug }, { $inc: { postCount: -1 } });
+    // 2. --- NEW AUTHORIZATION LOGIC ---
+    // Allow the delete if:
+    // 1. The user's role is 'admin'
+    // 2. The user's role is 'author' AND their ID matches the post's author ID
+    if (loggedInUser.role === 'admin' || (loggedInUser.role === 'author' && postToDelete.author.id.toString() === loggedInUser._id.toString())) {
+      
+      // User is authorized, proceed with delete
+      await BlogPost.findByIdAndDelete(req.params.id);
+      
+      // (Your cleanup logic is correct)
+      await Comment.deleteMany({ postId: postToDelete._id });
+      await Category.findByIdAndUpdate(postToDelete.category, { $inc: { postCount: -1 } });
+      if (postToDelete.tags?.length) {
+        for (const tag of postToDelete.tags) {
+          await Tag.findOneAndUpdate({ slug: tag.slug }, { $inc: { postCount: -1 } });
+        }
       }
-    }
+      res.status(204).send();
 
-    res.status(204).send();
+    } else {
+      // User is not an admin and not the owner
+      return res.status(403).json({ message: "Not authorized to delete this post." });
+    }
+    
   } catch (error) {
     res.status(500).json({ message: "Error deleting post.", error: error.message });
   }
@@ -210,17 +257,116 @@ exports.submitComment = async (req, res) => {
 // ==================================================
 exports.createAuthor = async (req, res) => {
   console.log("👤 [POST] Creating new author...");
+  
   try {
-    const { displayName, title, bio, profileImage, socialLinks } = req.body;
-    if (!displayName) return res.status(400).json({ message: "Display name is required." });
+    // 1. Destructure the new fields from the request body
+    const { 
+      email, 
+      password, 
+      displayName, 
+      title, 
+      bio, 
+      profileImage, 
+      socialLinks 
+    } = req.body;
 
-    const existing = await Author.findOne({ displayName });
-    if (existing) return res.status(400).json({ message: "Author already exists." });
+    // 2. Update validation to include email and password
+    if (!email || !password || !displayName) {
+      return res.status(400).json({ 
+        message: "Email, password, and display name are required." 
+      });
+    }
 
-    const saved = await new Author({ displayName, title, bio, profileImage, socialLinks }).save();
-    res.status(201).json(saved);
+    // 3. Check for existing author by EMAIL (which should be unique)
+    const existingAuthor = await Author.findOne({ email: email.toLowerCase() });
+    if (existingAuthor) {
+      return res.status(400).json({ 
+        message: "An author with this email already exists." 
+      });
+    }
+
+    // 4. Create the new Author instance
+    // We pass the plain-text password here.
+    // The 'pre-save' hook in your Mongoose schema will handle hashing it.
+    const newAuthor = new Author({
+      email: email.toLowerCase(), // Store email in lowercase for consistency
+      password,
+      displayName,
+      title,
+      bio,
+      profileImage,
+      socialLinks,
+    });
+
+    // 5. Save the new author
+    const savedAuthor = await newAuthor.save();
+
+    // 6. Send the response.
+    // Because you added `select: false` to the password in the schema,
+    // 'savedAuthor' will NOT include the password, which is secure.
+    res.status(201).json(savedAuthor);
+
   } catch (error) {
-    res.status(400).json({ message: "Error creating author.", error: error.message });
+    console.error("Error creating author:", error.message); // Good to log the error
+    res.status(400).json({ 
+      message: "Error creating author.", 
+      error: error.message 
+    });
+  }
+};
+
+exports.authorLogin = async (req, res) => {
+  console.log("🔒 [POST] Author login attempt...");
+  
+  try {
+    const { email, password } = req.body;
+
+    // 1. Basic Validation
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide both email and password." });
+    }
+
+    // 2. Find the Author by Email
+    // We must use .select('+password') because the schema has 'select: false'
+    const author = await Author.findOne({ email: email.toLowerCase() })
+                               .select('+password');
+
+    // 3. Check if author exists AND if password is correct
+    // Use bcrypt.compare to check the plain text password against the stored hash
+    if (!author || !(await bcrypt.compare(password, author.password))) {
+      // Use a generic message for security
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // 4. If credentials are correct, create JWT payload
+    const payload = {
+      id: author._id, // This ID will be used by your 'protectAuthor' middleware
+      name: author.displayName,
+      email: author.email
+    };
+
+    // 5. Sign the token
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET, // Make sure JWT_SECRET is in your .env file
+      { expiresIn: '1d' } // Token expires in 1 day
+    );
+
+    // 6. Send the successful response
+    // Send the token and some user info (but never the password)
+    res.status(200).json({
+      message: "Login successful!",
+      token: token,
+      user: {
+        _id: author._id,
+        email: author.email,
+        displayName: author.displayName
+      }
+    });
+
+  } catch (error) {
+    console.error("Login error:", error.message);
+    res.status(500).json({ message: "Server error during login.", error: error.message });
   }
 };
 

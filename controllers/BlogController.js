@@ -6,13 +6,26 @@ const { BlogPost, Author, Category, Tag, Comment } = require("../models/blog");
 // ==================================================
 // PUBLIC BLOG ROUTES
 // ==================================================
+// exports.getPublishedPosts = async (req, res) => {
+//   console.log("📘 [GET] Fetching published blog posts...");
+//   try {
+//     const posts = await BlogPost.find({ status: "published" })
+//       .select("title slug summary imageUrl publishDate readTime author commentCount")
+//       .sort({ publishDate: -1 })
+//       .limit(10);
+//     res.status(200).json(posts);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching blog list.", error: error.message });
+//   }
+// };
+
 exports.getPublishedPosts = async (req, res) => {
   console.log("📘 [GET] Fetching published blog posts...");
   try {
     const posts = await BlogPost.find({ status: "published" })
-      .select("title slug summary imageUrl publishDate readTime author commentCount")
-      .sort({ publishDate: -1 })
-      .limit(10);
+      .select("title slug summary content imageUrl publishDate readTime author commentCount")
+      .sort({ publishDate: -1 }); // Removed the .limit(10)
+
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ message: "Error fetching blog list.", error: error.message });

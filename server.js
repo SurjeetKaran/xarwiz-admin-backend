@@ -10,7 +10,7 @@ const indexRoutes = require("./routes/indexRoute");
 const blogRoutes = require("./routes/blogRoutes");
 const serviceContentRoutes = require("./routes/serviceContentRoutes");
 const aboutRoutes = require("./routes/aboutRoutes");
-const Author = require('./models/blog');
+const {Author} = require('./models/blog');
 
 dotenv.config();
 

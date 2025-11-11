@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
 const indexRoutes = require("./routes/indexRoute");
 const blogRoutes = require("./routes/blogRoutes");

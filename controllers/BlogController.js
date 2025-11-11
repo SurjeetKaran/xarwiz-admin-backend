@@ -315,61 +315,6 @@ exports.createAuthor = async (req, res) => {
   }
 };
 
-exports.authorLogin = async (req, res) => {
-  console.log("🔒 [POST] Author login attempt...");
-  
-  try {
-    const { email, password } = req.body;
-
-    // 1. Basic Validation
-    if (!email || !password) {
-      return res.status(400).json({ message: "Please provide both email and password." });
-    }
-
-    // 2. Find the Author by Email
-    // We must use .select('+password') because the schema has 'select: false'
-    const author = await Author.findOne({ email: email.toLowerCase() })
-                               .select('+password');
-
-    // 3. Check if author exists AND if password is correct
-    // Use bcrypt.compare to check the plain text password against the stored hash
-    if (!author || !(await bcrypt.compare(password, author.password))) {
-      // Use a generic message for security
-      return res.status(401).json({ message: "Invalid email or password." });
-    }
-
-    // 4. If credentials are correct, create JWT payload
-    const payload = {
-      id: author._id, // This ID will be used by your 'protectAuthor' middleware
-      name: author.displayName,
-      email: author.email
-    };
-
-    // 5. Sign the token
-    const token = jwt.sign(
-      payload,
-      process.env.JWT_SECRET, // Make sure JWT_SECRET is in your .env file
-      { expiresIn: '1d' } // Token expires in 1 day
-    );
-
-    // 6. Send the successful response
-    // Send the token and some user info (but never the password)
-    res.status(200).json({
-      message: "Login successful!",
-      token: token,
-      user: {
-        _id: author._id,
-        email: author.email,
-        displayName: author.displayName
-      }
-    });
-
-  } catch (error) {
-    console.error("Login error:", error.message);
-    res.status(500).json({ message: "Server error during login.", error: error.message });
-  }
-};
-
 exports.getAllAuthors = async (req, res) => {
   console.log("👥 [GET] Fetching all authors...");
   try {

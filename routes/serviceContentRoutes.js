@@ -8,14 +8,20 @@ const {
   getAllContent,
 } = require("../controllers/serviceContentController");
 
-// For each type (guest-posting / niche-edit)
-router.get("/:type", getContent);
-router.post("/:type", createContent);
-router.put("/:type", updateContent);
-router.delete("/:type", deleteContent);
+// --- ADD THIS LINE ---
+const { protectAdmin } = require("../middleware/authMiddleware"); // Adjust path as needed
 
-// Optional: to get both together
+// For each type (guest-posting / niche-edit)
+
+// PUBLIC: Get content for the public-facing page
+router.get("/:type", getContent);
+
+// ADMIN-ONLY: Create, update, or delete content
+router.post("/:type", protectAdmin, createContent);
+router.put("/:type", protectAdmin, updateContent);
+router.delete("/:type", protectAdmin, deleteContent);
+
+// PUBLIC: Optional route to get all content
 router.get("/", getAllContent);
 
 module.exports = router;
-

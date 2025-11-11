@@ -328,14 +328,57 @@ exports.getAllAuthors = async (req, res) => {
 exports.updateAuthor = async (req, res) => {
   console.log(`✏️ [PUT] Updating author ID: ${req.params.id}`);
   try {
-    const { displayName, title, bio, profileImage, socialLinks } = req.body;
+    const { 
+      displayName, 
+      email, 
+      password, // Will be blank if not being changed
+      title, 
+      bio, 
+      profileImage, 
+      socialLinks 
+    } = req.body;
+    
+    const authorId = req.params.id;
+
+    // 1. Build the object of fields to update
+    const updateData = {
+      displayName,
+      title,
+      bio,
+      profileImage,
+      socialLinks,
+    };
+
+    // 2. If email is provided, check if it's already used by ANOTHER author
+    if (email) {
+      const existingAuthor = await Author.findOne({ 
+        email: email.toLowerCase(), 
+        _id: { $ne: authorId } // $ne means "not equal to"
+      });
+      
+      if (existingAuthor) {
+        return res.status(400).json({ message: "This email is already in use by another author." });
+      }
+      updateData.email = email.toLowerCase();
+    }
+
+    // 3. If a new password is provided, hash it
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 12);
+    }
+
+    // 4. Perform the update
     const updated = await Author.findByIdAndUpdate(
-      req.params.id,
-      { displayName, title, bio, profileImage, socialLinks },
+      authorId,
+      { $set: updateData }, // Use $set to update only the fields in updateData
       { new: true, runValidators: true }
     );
+
     if (!updated) return res.status(404).json({ message: "Author not found." });
+    
+    // Send back the updated author (password hash is hidden by the schema)
     res.status(200).json(updated);
+
   } catch (error) {
     res.status(400).json({ message: "Error updating author.", error: error.message });
   }

@@ -26,7 +26,7 @@ app.use(
   cors({
     origin: [
       "https://xarwiz-admin-frontend.vercel.app", // your Vercel frontend URL
-      "http://localhost:5173",
+      "http://localhost:8000",
       "https://xarwiz.com" 
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

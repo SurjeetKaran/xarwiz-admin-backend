@@ -2,6 +2,7 @@
 
 const mongoose = require("mongoose");
 const { BlogPost, Author, Category, Tag, Comment } = require("../models/blog");
+const bcrypt = require("bcryptjs");
 
 
 // ==================================================

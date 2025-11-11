@@ -436,7 +436,7 @@ exports.getPostsByAuthor = async (req, res) => {
       'author.id': authorId, 
       status: "published" 
     })
-      .select("title slug summary imageUrl publishDate readTime commentCount")
+      .select("title slug summary content imageUrl publishDate readTime commentCount")
       .sort({ publishDate: -1 });
 
     // 4. Send the list of posts (will be an empty array if none are found)

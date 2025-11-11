@@ -331,7 +331,7 @@ exports.updateAuthor = async (req, res) => {
     const { 
       displayName, 
       email, 
-      password, // Will be blank if not being changed
+      password,
       title, 
       bio, 
       profileImage, 
@@ -339,8 +339,6 @@ exports.updateAuthor = async (req, res) => {
     } = req.body;
     
     const authorId = req.params.id;
-
-    // 1. Build the object of fields to update
     const updateData = {
       displayName,
       title,
@@ -349,11 +347,10 @@ exports.updateAuthor = async (req, res) => {
       socialLinks,
     };
 
-    // 2. If email is provided, check if it's already used by ANOTHER author
     if (email) {
       const existingAuthor = await Author.findOne({ 
         email: email.toLowerCase(), 
-        _id: { $ne: authorId } // $ne means "not equal to"
+        _id: { $ne: authorId } 
       });
       
       if (existingAuthor) {
@@ -362,25 +359,29 @@ exports.updateAuthor = async (req, res) => {
       updateData.email = email.toLowerCase();
     }
 
-    // 3. If a new password is provided, hash it
     if (password) {
       updateData.password = await bcrypt.hash(password, 12);
     }
 
-    // 4. Perform the update
     const updated = await Author.findByIdAndUpdate(
       authorId,
-      { $set: updateData }, // Use $set to update only the fields in updateData
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
     if (!updated) return res.status(404).json({ message: "Author not found." });
     
-    // Send back the updated author (password hash is hidden by the schema)
     res.status(200).json(updated);
 
   } catch (error) {
-    res.status(400).json({ message: "Error updating author.", error: error.message });
+    // --- 🔴 ADD THIS LINE FOR DEBUGGING 🔴 ---
+    console.error("UPDATE AUTHOR FAILED:", error.message); 
+    // ---
+    
+    res.status(400).json({ 
+      message: "Error updating author.", 
+      error: error.message 
+    });
   }
 };
 

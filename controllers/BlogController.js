@@ -413,6 +413,38 @@ exports.getAuthorById = async (req, res) => {
   }
 };
 
+exports.getPostsByAuthor = async (req, res) => {
+  console.log(`📘 [GET] Fetching published posts for author: ${req.params.id}`);
+  try {
+    const authorId = req.params.id;
+
+    // 1. Validate the Author ID
+    if (!mongoose.Types.ObjectId.isValid(authorId)) {
+      return res.status(400).json({ message: "Invalid Author ID format." });
+    }
+
+    // 2. (Optional but good) Check if the author actually exists
+    const author = await Author.findById(authorId);
+    if (!author) {
+      return res.status(404).json({ message: "Author not found." });
+    }
+
+    // 3. Find all published posts where the 'author.id' matches
+    const posts = await BlogPost.find({ 
+      'author.id': authorId, 
+      status: "published" 
+    })
+      .select("title slug summary imageUrl publishDate readTime commentCount")
+      .sort({ publishDate: -1 });
+
+    // 4. Send the list of posts (will be an empty array if none are found)
+    res.status(200).json(posts);
+    
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching author's posts.", error: error.message });
+  }
+};
+
 // ==================================================
 // CATEGORY + TAG MANAGEMENT
 // ==================================================

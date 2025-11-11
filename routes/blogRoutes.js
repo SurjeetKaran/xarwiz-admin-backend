@@ -23,6 +23,7 @@ router.get("/blog/author/:id", blogController.getAuthorById);
 router.post("/admin/blog/posts", checkAuth, blogController.createPost);
 router.put("/admin/blog/posts/:id", checkAuth, blogController.updatePost);
 router.delete("/admin/blog/posts/:id", checkAuth, blogController.deletePost);
+router.get("/blog/author/:id/posts", blogController.getPostsByAuthor);
 
 // ---- Authors (Public for signup/login, Admin for management) ----
 router.post("/admin/authors", blogController.createAuthor); // Public Signup

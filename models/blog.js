@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 // =========================================================================
 // 1. Author Schema (Manages Blogger Profile in Sidebar)
@@ -15,19 +16,19 @@ const AuthorSchema = new mongoose.Schema(
       required: true,
     },
 
-    // --- NEW: Email Field ---
+    // Email Field
     email: {
       type: String,
-      required: [true, "Email is required"], // Added required validation
-      unique: true, // Ensures no two authors have the same email
-      lowercase: true, // Stores email in lowercase
-      trim: true, // Removes whitespace
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
 
-    // --- NEW: Password Field ---
+    // Password Field
     password: {
       type: String,
-      required: [true, "Password is required"], // Added required validation
+      required: [true, "Password is required"],
       select: false, // Hides password by default on queries
     },
 
@@ -43,7 +44,7 @@ const AuthorSchema = new mongoose.Schema(
     // URL to the author's profile image
     profileImage: { type: String },
 
-    // Social Media Links (matches the footer/sidebar social icons)
+    // Social Media Links
     socialLinks: {
       facebook: { type: String },
       twitter: { type: String },

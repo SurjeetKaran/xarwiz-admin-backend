@@ -28,7 +28,7 @@ router.get("/blog/author/:id/posts", blogController.getPostsByAuthor);
 // ---- Authors (Public for signup/login, Admin for management) ----
 router.post("/admin/authors", blogController.createAuthor); // Public Signup
 
-router.get("/admin/authors", protectAdmin, blogController.getAllAuthors); // Admin-only
+router.get("/admin/authors", blogController.getAllAuthors); // Admin-only
 router.put("/admin/authors/:id", protectAdmin, blogController.updateAuthor);
 router.delete("/admin/authors/:id", protectAdmin, blogController.deleteAuthor);
 

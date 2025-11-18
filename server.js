@@ -69,100 +69,98 @@ return jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: "7d" });
 // Admin Login
 // -----------------------------
 // --- Your Updated Login Route ---
-app.post("/api/admin/login", async (req, res) => { // Made this async
-  
-  // 1. Get all three fields from the body
-  // Note: Your form must send 'email' now, not 'username'
-  const { email, password, role } = req.body;
+app.post("/api/admin/login", async (req, res) => {
+  // 1. Get ONLY email and password (role is no longer sent)
+  const { email, password } = req.body;
 
-  if (!email || !password || !role) {
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
-      message: "Please provide email, password, and role",
+      message: "Please provide email and password",
     });
   }
 
   try {
-    let userPayload;
+    let userPayload = null;
 
-    // -------------------------
-    // --- ADMIN LOGIN LOGIC ---
-    // -------------------------
-    if (role === 'admin') {
-      const adminEmail = process.env.ADMIN_USERNAME; // Assumes this is the admin's email
-      const adminPassword = process.env.ADMIN_PASSWORD;
+    // ==========================================
+    // CHECK 1: IS IT THE SUPER ADMIN?
+    // ==========================================
+    const adminEmail = process.env.ADMIN_USERNAME; // e.g., "admin@xarwiz.com"
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
-      if (email === adminEmail && password === adminPassword) {
-        // Create the payload for the admin JWT
+    // Check if email matches admin (Case insensitive check is safer for emails)
+    if (email.toLowerCase() === adminEmail.toLowerCase()) {
+      // Verify Admin Password
+      if (password === adminPassword) {
         userPayload = {
-          id: 'admin_user_01', // Static ID for the admin
+          id: 'admin_user_01', // Static ID for admin
           email: adminEmail,
-          role: 'admin' // CRITICAL: Add the role
+          role: 'admin' // ✅ Role determined automatically
         };
       } else {
         return res.status(401).json({
           success: false,
-          message: "Invalid admin email or password",
+          message: "Invalid admin password",
         });
       }
+    }
 
-    // --------------------------
-    // --- AUTHOR LOGIN LOGIC ---
-    // --------------------------
-    } else if (role === 'author') {
-      
-      // Find the author in the database by their email
-      const author = await Author.findOne({ email: email.toLowerCase() })
-                                 .select('+password');
+    // ==========================================
+    // CHECK 2: IS IT AN AUTHOR? (Only if not Admin)
+    // ==========================================
+    if (!userPayload) {
+      // Find author by email
+      const author = await Author.findOne({ email: email.toLowerCase() }).select('+password');
 
-      // Check if author exists and password is correct using bcrypt
-      if (!author || !(await bcrypt.compare(password, author.password))) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid author email or password",
-        });
+      // If author found, verify password
+      if (author) {
+        const isMatch = await bcrypt.compare(password, author.password);
+        if (isMatch) {
+          userPayload = {
+            id: author._id,
+            email: author.email,
+            name: author.displayName,
+            role: 'author' // ✅ Role determined automatically
+          };
+        } else {
+           return res.status(401).json({
+            success: false,
+            message: "Invalid author password",
+          });
+        }
       }
+    }
 
-      // Create the payload for the author JWT
-      userPayload = {
-        id: author._id,
-        email: author.email,
-        name: author.displayName,
-        role: 'author' // CRITICAL: Add the role
-      };
-
-    // --------------------------
-    // --- INVALID ROLE ---
-    // --------------------------
-    } else {
-      return res.status(400).json({
+    // ==========================================
+    // FINAL RESULT
+    // ==========================================
+    
+    // If userPayload is still null, the user doesn't exist in either system
+    if (!userPayload) {
+      return res.status(404).json({
         success: false,
-        message: "Invalid role specified. Must be 'admin' or 'author'."
+        message: "User not found",
       });
     }
 
-    // ------------------------------------
-    // --- TOKEN GENERATION (Successful Login) ---
-    // ------------------------------------
-    
-    // We replace your 'generateToken' function with the standard jwt.sign
-    // This ensures the payload (with the role) is included
+    // Generate Token
     const token = jwt.sign(
       userPayload,
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    // Send the token and user info (excluding password)
+    // Success Response
     return res.json({
       success: true,
-      message: `${role} login successful`,
+      message: "Login successful",
       token: token,
       user: {
         id: userPayload.id,
         email: userPayload.email,
-        name: userPayload.name, // Will be undefined for admin, that's fine
-        role: userPayload.role
+        name: userPayload.name, // Admin will have undefined name, which is fine
+        role: userPayload.role // Frontend needs this to know where to redirect
       }
     });
 

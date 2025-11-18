@@ -27,7 +27,8 @@ app.use(
     origin: [
       "https://xarwiz-admin-frontend.vercel.app", // your Vercel frontend URL
       "http://localhost:8000",
-      "https://xarwiz.com" 
+      "https://xarwiz.com", 
+      "http://localhost:5173",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
